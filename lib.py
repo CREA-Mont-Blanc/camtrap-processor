@@ -10,6 +10,23 @@ import json
 
 
 def get_video_creation_date(video_path):
+    """
+    Extract the creation date from a video file using ffprobe.
+
+    Parameters
+    ----------
+    video_path : str
+        Path to the video file.
+
+    Returns
+    -------
+    str or None
+        The creation time as a string in ISO format, or None if extraction fails.
+
+    Notes
+    -----
+    This function uses ffprobe from the ffmpeg suite to extract metadata.
+    """
     # Run ffprobe command to get video metadata
     command = [
         "ffprobe",
@@ -40,7 +57,23 @@ def get_video_creation_date(video_path):
 
 
 def calculate_md5(file_path):
-    """Calcule le hash MD5 d'un fichier."""
+    """
+    Calculate the MD5 hash of a file.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the file for which to calculate the MD5 hash.
+
+    Returns
+    -------
+    str
+        The MD5 hash as a hexadecimal string.
+
+    Notes
+    -----
+    The file is read in chunks of 4096 bytes to handle large files efficiently.
+    """
     hash_md5 = hashlib.md5()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
@@ -49,12 +82,43 @@ def calculate_md5(file_path):
 
 
 def copy_file(src, dst):
-    """Copie un fichier de src à dst."""
+    """
+    Copy a file from source to destination with metadata preservation.
+
+    Parameters
+    ----------
+    src : str
+        Source file path.
+    dst : str
+        Destination file path.
+
+    Notes
+    -----
+    This function uses shutil.copy2 to preserve file metadata including timestamps.
+    """
     shutil.copy2(src, dst)
 
 
 def verify_files(src, dst):
-    """Vérifie que les fichiers dans src et dst sont identiques en comparant leurs hash MD5."""
+    """
+    Verify that files in source and destination directories are identical by comparing MD5 hashes.
+
+    Parameters
+    ----------
+    src : str
+        Source directory path.
+    dst : str
+        Destination directory path.
+
+    Returns
+    -------
+    bool
+        True if all files are identical, False otherwise.
+
+    Notes
+    -----
+    Compares file count and MD5 hashes of all files in both directories.
+    """
     src_files = sorted(
         [
             os.path.join(src, f)
@@ -81,7 +145,23 @@ def verify_files(src, dst):
 
 
 def copy_files_with_verification(src_dir, dst_dir, n_jobs=1):
-    """Copie les fichiers de src_dir à dst_dir en utilisant joblib et vérifie la copie."""
+    """
+    Copy files from source to destination directory using parallel processing and verify the operation.
+
+    Parameters
+    ----------
+    src_dir : str
+        Source directory path.
+    dst_dir : str
+        Destination directory path.
+    n_jobs : int, optional
+        Number of parallel jobs for copying (default: 1).
+
+    Notes
+    -----
+    Creates the destination directory if it doesn't exist and verifies all files after copying.
+    Uses joblib for parallel file copying operations.
+    """
     if not os.path.exists(dst_dir):
         os.makedirs(dst_dir)
 
@@ -103,6 +183,32 @@ def copy_files_with_verification(src_dir, dst_dir, n_jobs=1):
 
 
 def get_file_paths(directory, save_path=None, type_file=".jpg"):
+    """
+    Get all file paths of a specific type from a directory and its subdirectories.
+
+    Parameters
+    ----------
+    directory : str
+        Root directory to search for files.
+    save_path : str, optional
+        Path to save the list of files (default: None).
+    type_file : str, optional
+        File extension to search for (default: ".jpg").
+
+    Returns
+    -------
+    list of str
+        Sorted list of full file paths matching the specified extension.
+
+    Raises
+    ------
+    ValueError
+        If no files with the specified extension are found.
+
+    Notes
+    -----
+    Recursively searches all subdirectories if no files are found in the root directory.
+    """
     lst_img = os.walk(directory).__next__()[2]
     full_name = [
         os.path.join(directory, l) for l in lst_img if l.lower().endswith((type_file))
@@ -125,6 +231,23 @@ def get_file_paths(directory, save_path=None, type_file=".jpg"):
 
 
 def split_path(file_path):
+    """
+    Split a file path into its components.
+
+    Parameters
+    ----------
+    file_path : str
+        The file path to split.
+
+    Returns
+    -------
+    list of str
+        List of path components.
+
+    Notes
+    -----
+    Normalizes the path before splitting using os.path.normpath.
+    """
     # Normaliser le chemin
     normalized_path = os.path.normpath(file_path)
     # Diviser le chemin en composants
@@ -133,11 +256,57 @@ def split_path(file_path):
 
 
 def normalize_station_name(name):
-    """Normalise un nom de station pour comparaison."""
+    """
+    Normalize a station name for comparison by removing spaces and hyphens and converting to lowercase.
+
+    Parameters
+    ----------
+    name : str
+        The station name to normalize.
+
+    Returns
+    -------
+    str
+        The normalized station name.
+
+    Notes
+    -----
+    Removes all spaces and hyphens, then converts to lowercase for consistent matching.
+    """
     return re.sub(r"[\s\-]", "", name.lower())
 
 
 def get_new_dir(file_path, corresponding_dir=None):
+    """
+    Determine the new directory name for a file based on correspondence mapping.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the file to process.
+    corresponding_dir : pandas.DataFrame, optional
+        DataFrame containing station name mappings. Can have two structures:
+        - Structure 1: columns 'current_name' and 'replacement_name'
+        - Structure 2: columns 'station', 'running', 'move_to'
+
+    Returns
+    -------
+    str
+        The new directory name for the file.
+
+    Raises
+    ------
+    ValueError
+        If the correspondence DataFrame structure is not recognized.
+    Warning
+        If no correspondence is found for the file path.
+
+    Notes
+    -----
+    Automatically detects the DataFrame structure and applies the appropriate mapping logic.
+    For structure 1: directly maps current_name to replacement_name.
+    For structure 2: considers running status and move_to fields.
+    """
     components = split_path(os.path.abspath(file_path))
     if corresponding_dir is None:
         return components[-2]
@@ -197,6 +366,32 @@ def get_new_dir(file_path, corresponding_dir=None):
 
 
 def get_metadata_structure(file_path, corresponding_dir=None, type_file=".jpg"):
+    """
+    Extract metadata structure from image or video files.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the file to process.
+    corresponding_dir : pandas.DataFrame, optional
+        DataFrame containing station name mappings (default: None).
+    type_file : str, optional
+        File extension to process (default: ".jpg").
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'file_path': original file path
+        - 'date_acquisition': datetime of file creation/acquisition
+        - 'new_dir': mapped directory name
+
+    Notes
+    -----
+    Supports various image formats (jpg, png, tiff, bmp) and video formats (avi, mov, mp4).
+    For images, extracts DateTimeOriginal from EXIF data.
+    For videos, uses ffprobe to extract creation time.
+    """
     if file_path.lower().endswith(type_file):
         new_dir = get_new_dir(file_path, corresponding_dir)
 
@@ -253,6 +448,29 @@ def get_metadata_structure(file_path, corresponding_dir=None, type_file=".jpg"):
 
 
 def prepare_cleaned_structure(files_path, structure, timelapse=True):
+    """
+    Create a cleaned directory structure for organizing processed files.
+
+    Parameters
+    ----------
+    files_path : str
+        Path to the original files directory.
+    structure : pandas.DataFrame
+        DataFrame containing file metadata with 'date_acquisition' column.
+    timelapse : bool, optional
+        Whether to create a timelapse subdirectory (default: True).
+
+    Returns
+    -------
+    str
+        Path to the created cleaned directory.
+
+    Notes
+    -----
+    Creates a 'CLEANED' directory alongside the original directory.
+    Creates year-based subdirectories based on acquisition dates.
+    Sets directory permissions to 777 for full access.
+    """
     abs_dir, dir = os.path.split(os.path.abspath(files_path))
     cleaned_dir = os.path.join(abs_dir, f"CLEANED")
     os.makedirs(cleaned_dir, exist_ok=True)
@@ -266,6 +484,25 @@ def prepare_cleaned_structure(files_path, structure, timelapse=True):
 
 
 def add_sequence_column(df):
+    """
+    Add sequence numbers to consecutive images taken within 1-minute intervals.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing 'date_acquisition' column with datetime information.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with added 'sequence' column indicating consecutive image numbers.
+
+    Notes
+    -----
+    Images taken within 1 minute of each other are considered part of the same sequence.
+    Sequence counter resets when there's a gap longer than 1 minute between images.
+    Modifies the input DataFrame in place and also returns it.
+    """
     # Trier les données par date d'acquisition
     df.sort_values("date_acquisition", inplace=True)
 
@@ -293,6 +530,24 @@ def add_sequence_column(df):
 
 
 def add_sequence2name(df):
+    """
+    Add sequence numbers to filenames by modifying the 'new_name' column.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing 'new_name' column with .jpg filenames.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with updated 'new_name' column including sequence numbers.
+
+    Notes
+    -----
+    Replaces '.jpg' extension with '(sequence_number).jpg' format.
+    Assumes the DataFrame already has a 'sequence' column.
+    """
     df["new_name"] = df.apply(
         lambda x: x.new_name.replace(".jpg", f"({x.sequence}).jpg"), axis=1
     )
@@ -300,6 +555,23 @@ def add_sequence2name(df):
 
 
 def calculate_hash_df(df):
+    """
+    Calculate MD5 hashes for all files in a DataFrame using parallel processing.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing a 'file_path' column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with an added 'hash' column containing MD5 hashes.
+
+    Notes
+    -----
+    Uses joblib for parallel hash calculation with all available cores (-1).
+    """
     # Utiliser joblib pour paralléliser l'application de calculate_md5
     df["hash"] = Parallel(n_jobs=-1)(
         delayed(calculate_md5)(file_path) for file_path in df["file_path"]
@@ -308,6 +580,25 @@ def calculate_hash_df(df):
 
 
 def check_doublon(df):
+    """
+    Identify and remove duplicate files based on MD5 hash comparison.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing file information with 'file_path' column.
+
+    Returns
+    -------
+    tuple of (pandas.DataFrame, pandas.Series)
+        - DataFrame with duplicates removed (keeping first occurrence)
+        - Series containing file paths of dropped duplicates
+
+    Notes
+    -----
+    Calculates MD5 hashes for all files and removes duplicates based on hash values.
+    The first occurrence of each unique hash is kept.
+    """
     # Calculer les hash pour le DataFrame
     df_hash = calculate_hash_df(df).copy(deep=True)
 
@@ -324,12 +615,52 @@ def check_doublon(df):
 
 
 def extract_indice_to_rename(df, query_condition):
+    """
+    Extract indices of rows that match a query condition.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame to query.
+    query_condition : str
+        Pandas query string to filter rows.
+
+    Returns
+    -------
+    pandas.Series
+        Boolean series indicating which rows match the condition.
+
+    Notes
+    -----
+    Uses pandas.DataFrame.query() method for filtering.
+    """
     condition = df.query(query_condition)
     idx = df.index.isin(condition.index)
     return idx
 
 
 def delta_enregistrement(df, last_image_issue, correct_date):
+    """
+    Calculate the time difference between a problematic image and the correct date.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing file information with 'file_path' and 'date_acquisition' columns.
+    last_image_issue : str
+        Identifier string to find the problematic image in file paths.
+    correct_date : str
+        The correct date in string format.
+
+    Returns
+    -------
+    numpy.timedelta64
+        Time difference in days between the correct date and the problematic image date.
+
+    Notes
+    -----
+    Used for calculating date corrections when camera timestamps are incorrect.
+    """
     last_image_issue_name = df[df.file_path.str.contains(last_image_issue)]
     diff_days = pd.to_datetime(correct_date) - pd.to_datetime(
         last_image_issue_name.date_acquisition
@@ -338,6 +669,32 @@ def delta_enregistrement(df, last_image_issue, correct_date):
 
 
 def patch_area(structure, area2patch, last_image_issue, correct_date, query_condition):
+    """
+    Correct timestamp issues for files in a specific area based on a reference image.
+
+    Parameters
+    ----------
+    structure : pandas.DataFrame
+        DataFrame containing file metadata with 'new_dir' and 'date_acquisition' columns.
+    area2patch : str
+        Name of the area/directory to patch.
+    last_image_issue : str
+        Identifier for the reference image with known correct timing.
+    correct_date : str
+        The correct date for the reference image.
+    query_condition : str
+        Pandas query string to select which files to patch.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Updated DataFrame with corrected timestamps.
+
+    Notes
+    -----
+    Calculates time offset from reference image and applies it to selected files.
+    Used to fix systematic timestamp errors in camera trap data.
+    """
     sub_df = structure.loc[structure.new_dir == area2patch, :]
     idx = extract_indice_to_rename(sub_df, query_condition)
     sub_df = sub_df.loc[idx]
@@ -353,6 +710,25 @@ def patch_area(structure, area2patch, last_image_issue, correct_date, query_cond
 
 
 def add_sequence_column(df):
+    """
+    Add sequence numbers to consecutive images taken within 1-minute intervals (improved version).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing 'date_acquisition' column with datetime information.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with added 'sequence' column indicating consecutive image numbers.
+
+    Notes
+    -----
+    Images taken within 1 minute of each other are considered part of the same sequence.
+    Sequence counter resets when there's a gap longer than 1 minute between images.
+    This version uses .copy() and .loc[] for safer DataFrame operations.
+    """
     # Trier les données par date d'acquisition
     df = df.sort_values("date_acquisition").copy()
 
@@ -380,6 +756,25 @@ def add_sequence_column(df):
 
 
 def add_sequence2name(df):
+    """
+    Add sequence numbers to filenames by modifying the 'new_name' column (improved version).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing 'new_name' column with .jpg filenames and 'date_acquisition' column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with updated 'new_name' column including sequence numbers.
+
+    Notes
+    -----
+    First calls add_sequence_column() to generate sequence numbers, then updates filenames.
+    Replaces '.jpg' extension with '(sequence_number).jpg' format.
+    Uses .loc[] for safer DataFrame operations.
+    """
     df = add_sequence_column(df)
     df.loc[:, "new_name"] = df.apply(
         lambda x: x.new_name.replace(".jpg", f"({x.sequence}).jpg"), axis=1
@@ -388,6 +783,35 @@ def add_sequence2name(df):
 
 
 def process_files(row, cleaned_dir, copy=False, timelapse=False):
+    """
+    Process and organize individual files into the cleaned directory structure.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row from DataFrame containing file metadata with columns:
+        - 'date_acquisition': datetime of file creation
+        - 'new_dir': target directory name
+        - 'new_name': new filename
+        - 'file_path': original file path
+    cleaned_dir : str
+        Path to the cleaned directory structure.
+    copy : bool, optional
+        If True, copy files; if False, move files (default: False).
+    timelapse : bool, optional
+        If True, organize as timelapse; if False, organize by year (default: False).
+
+    Returns
+    -------
+    str
+        Path to the cleaned directory.
+
+    Notes
+    -----
+    Creates year-based subdirectories for regular files or timelapse subdirectory.
+    Skips processing if target file already exists.
+    Uses shutil.copy2() for copying or shutil.move() for moving files.
+    """
     if row.date_acquisition is not None:
         if not timelapse:
             try:

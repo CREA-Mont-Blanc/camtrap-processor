@@ -46,7 +46,8 @@ This command builds the Docker image using the Dockerfile in the current directo
 # Usage
 1. Prepare your data directory
 Make sure your data is structured as shown above, with a `RAW` directory containing the images and a `cameras_info.csv` file in the root of your data directory.
-
+The `cameras_info.csv` file contain either the correct name of the station and allow a correction of the name of the folder (for instance: "Blaitiere_1700" become "blaitiere1700") with a column `station`. Or two columns `current_name` and `replacement_name` two modify the current name of multiples folders.
+ 
 A new folder `data/CLEANED` will be created to store the processed images and metadata with the following structure:
 ```
 data/
