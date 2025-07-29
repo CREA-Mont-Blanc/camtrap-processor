@@ -144,88 +144,56 @@ def get_new_dir(file_path, corresponding_dir=None):
 
     # Préparer DataFrame
     corresponding_dir = corresponding_dir.copy()
-    corresponding_dir["normalized_station"] = corresponding_dir["station"].apply(
-        normalize_station_name
-    )
 
-    # Essayer de trouver une correspondance pour chaque composant du chemin
-    for comp in components:
-        normalized_comp = normalize_station_name(comp)
-        match_row = corresponding_dir[
-            corresponding_dir["normalized_station"] == normalized_comp
-        ]
+    # Détecter automatiquement la structure du DataFrame
+    if (
+        "current_name" in corresponding_dir.columns
+        and "replacement_name" in corresponding_dir.columns
+    ):
+        # Structure avec current_name et replacement_name
+        corresponding_dir["normalized_current"] = corresponding_dir[
+            "current_name"
+        ].apply(normalize_station_name)
 
-        if not match_row.empty:
-            match_row = match_row.iloc[0]
-            if match_row.get("running", "N") != "Y" and pd.notna(
-                match_row.get("move_to", None)
-            ):
-                return match_row["move_to"]
-            else:
-                return match_row["station"]
+        # Essayer de trouver une correspondance pour chaque composant du chemin
+        for comp in components:
+            normalized_comp = normalize_station_name(comp)
+            match_row = corresponding_dir[
+                corresponding_dir["normalized_current"] == normalized_comp
+            ]
+
+            if not match_row.empty:
+                match_row = match_row.iloc[0]
+                return match_row["replacement_name"]
+
+    elif "station" in corresponding_dir.columns:
+        # Structure avec station, running, move_to
+        corresponding_dir["normalized_station"] = corresponding_dir["station"].apply(
+            normalize_station_name
+        )
+
+        # Essayer de trouver une correspondance pour chaque composant du chemin
+        for comp in components:
+            normalized_comp = normalize_station_name(comp)
+            match_row = corresponding_dir[
+                corresponding_dir["normalized_station"] == normalized_comp
+            ]
+
+            if not match_row.empty:
+                match_row = match_row.iloc[0]
+                if match_row.get("running", "N") != "Y" and pd.notna(
+                    match_row.get("move_to", None)
+                ):
+                    return match_row["move_to"]
+                else:
+                    return match_row["station"]
+    else:
+        raise ValueError(
+            "Structure de correspondance non reconnue. Colonnes attendues: ('current_name', 'replacement_name') ou ('station')"
+        )
 
     # Si aucune correspondance trouvée
     raise Warning(f"Aucune correspondance trouvée pour {file_path}")
-
-
-# def get_new_dir(file_path, corresponding_dir=None):
-#     # Normaliser le chemin et le découper
-#     components = split_path(os.path.abspath(file_path))
-#     base_dir = components[-2]  # Nom du dossier candidat
-#     normalized_base = normalize_station_name(base_dir)
-
-#     if corresponding_dir is None:
-#         return base_dir
-
-#     # Normaliser les noms de stations dans la DataFrame
-#     corresponding_dir = corresponding_dir.copy()
-#     print(f"Corresponding directory: {corresponding_dir}")
-#     corresponding_dir["normalized_station"] = corresponding_dir["station"].apply(
-#         normalize_station_name
-#     )
-
-#     # Chercher correspondance directe ou indirecte
-#     match_row = corresponding_dir[
-#         corresponding_dir["normalized_station"] == normalized_base
-#     ]
-
-#     if not match_row.empty:
-#         match_row = match_row.iloc[0]
-
-#         # Si non-running mais move_to est défini
-#         if match_row.get("running", "N") != "Y" and pd.notna(
-#             match_row.get("move_to", None)
-#         ):
-#             return match_row["move_to"]
-#         else:
-#             return match_row["station"]
-#     else:
-#         raise Warning(f"Aucune correspondance trouvée pour {file_path}")
-
-
-# def get_new_dir(file_path, corresponding_dir=None):
-#     # Diviser le chemin en composants
-#     components = split_path(os.path.abspath(file_path))
-#     # Trouver le répertoire de destination correspondant
-#     find = False
-#     if corresponding_dir is None:
-#         new_dir = components[-2]
-#     else:
-#         for i in range(len(components)):
-#             if components[i].lower() in corresponding_dir.current_name.str.lower().values:
-#                 idx = corresponding_dir.current_name.str.lower().eq(components[i].lower()).idxmax()
-#                 new_dir = corresponding_dir.replacement_name[idx]
-#                 find = True
-#                 break
-#             else:
-#                 if components[i].lower() in corresponding_dir.replacement_name.str.lower().values:
-#                     new_dir = components[i]
-#                     find = True
-#                     break
-#         if not find:
-#             new_dir = None
-#             raise Warning(f"No corresponding directory found for {file_path}")
-#     return new_dir
 
 
 def get_metadata_structure(file_path, corresponding_dir=None, type_file=".jpg"):
