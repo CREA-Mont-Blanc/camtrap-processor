@@ -95,7 +95,7 @@ def main(
             lambda x: (
                 x.new_dir
                 + "__"
-                + x.date_acquisition.strftime("%Y-%m-%d___%H-%M-%S")
+                + x.date_acquisition.strftime("%Y-%m-%d__%H-%M-%S")
                 + ".jpg"
                 if ((x.date_acquisition is not None))
                 else None

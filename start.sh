@@ -92,6 +92,7 @@ while true; do
 done
 
 # --- 2. Exécution du script de traitement principal ---
+
 print_header "Étape 2: Réorganisation et renommage des fichiers"
 
 py_list_area2patch=$(printf "'%s'," "${AREA2PATCH_G[@]}")
@@ -104,7 +105,7 @@ echo "from main_process_images import main
 import pandas as pd
 main(
     files_path=\"$FILES_PATH\",
-    corresponding_dir=pd.read_csv(\"$CORRESPONDING_DIR_CSV\"),
+    corresponding_dir=pd.read_csv(\"$CORRESPONDING_DIR_CSV\", sep=None, engine='python'),
     type_file=\"$TYPE_FILE\",
     area2patch_g=[${py_list_area2patch%,}],
     query_condition_g=[${py_list_query%,}],
@@ -113,11 +114,13 @@ main(
 )
 " > run_main.py
 
+
 python3 run_main.py
 check_error "Réorganisation des fichiers (main_process_images.py)"
 
+# Nouvelle logique pour déplacer CLEANED à la racine du volume monté
 if [[ "$FILES_PATH" == /data/RAW* ]]; then
-    CLEANED_DIR="/data/CLEANED"
+    CLEANED_DIR="/data/RAW/CLEANED"
     ROOT_DIR="/data"
 else
     BASE_PATH="${FILES_PATH/RAW/}"
@@ -125,28 +128,49 @@ else
     ROOT_DIR="$(dirname "$FILES_PATH")"
 fi
 
-chmod -R 777 "$CLEANED_DIR"
+# Vérifier si le dossier CLEANED existe
+if [ ! -d "$CLEANED_DIR" ]; then
+    echo "Erreur: Le dossier CLEANED '$CLEANED_DIR' n'a pas été trouvé."
+    exit 1
+fi
 
-echo "Les fichiers traités sont dans le dossier: $ROOT_DIR"
-cp -r "$CLEANED_DIR/.tmp" "$ROOT_DIR"
-rm -rf "$CLEANED_DIR/.tmp"  # Supprimer le dossier .tmp
+# Demander à l'utilisateur s'il veut un sous-dossier
+read -e -p "Voulez-vous mettre les résultats dans un sous-dossier de CLEANED ? (o/n) [défaut: n]: " SOUSDOSSIER_REP
+SOUSDOSSIER_REP=${SOUSDOSSIER_REP:-n}
+if [[ "$SOUSDOSSIER_REP" =~ ^[Oo]$ ]]; then
+    read -e -p "Nom du sous-dossier : " SOUSDOSSIER_NOM
+    DEST_CLEANED="/data/CLEANED/$SOUSDOSSIER_NOM"
+else
+    DEST_CLEANED="/data/CLEANED"
+fi
 
-check_error "Déplacement du dossier .tmp"
-echo "Dossier .tmp déplacé dans $ROOT_DIR/.tmp"
+# Créer le dossier destination si besoin
+mkdir -p "$DEST_CLEANED"
 
-ROOT_DIR="${ROOT_DIR}/.tmp"
+# Déplacer le contenu de CLEANED dans la destination
+cp -r "$CLEANED_DIR"/* "$DEST_CLEANED"/
+check_error "Déplacement du dossier CLEANED"
+
+# Nettoyer l'ancien dossier CLEANED
+rm -rf "$CLEANED_DIR"
+
+chmod -R 777 "$DEST_CLEANED"
+echo "Les fichiers traités sont dans le dossier: $DEST_CLEANED"
+
+ROOT_DIR="$DEST_CLEANED"
 
 # --- 3. Exécution du hachage ---
 print_header "Étape 3: Calcul des hashes des fichiers"
 
-if [ ! -d "$CLEANED_DIR" ]; then
-    echo "Erreur: Le dossier de sortie '$CLEANED_DIR' n'a pas été trouvé."
+
+if [ ! -d "$ROOT_DIR" ]; then
+    echo "Erreur: Le dossier de sortie '$ROOT_DIR' n'a pas été trouvé."
     exit 1
 fi
 
-# Fichier de sortie dans le dossier racine, pas dans CLEANED
+# Fichier de sortie dans le dossier destination
 HASH_OUTPUT_FILE="${ROOT_DIR}/hashes_output.csv"
-./run_hash.sh "$CLEANED_DIR" "$HASH_OUTPUT_FILE"
+./run_hash.sh "$ROOT_DIR" "$HASH_OUTPUT_FILE"
 check_error "Hachage des fichiers (run_hash.sh)"
 
 
@@ -157,6 +181,7 @@ if [ ! -f "$HASH_OUTPUT_FILE" ]; then
     echo "Erreur: Le fichier de hashes '$HASH_OUTPUT_FILE' n'a pas été trouvé."
     exit 1
 fi
+
 ./run_extract_duplicates.sh "$HASH_OUTPUT_FILE"
 check_error "Détection des doublons (run_extract_duplicates.sh)"
 echo "Les rapports sur les doublons ont été enregistrés dans le dossier '$ROOT_DIR'."
@@ -195,6 +220,7 @@ while true; do
         * ) echo "Répondez par 'o' ou 'n'.";;
     esac
 done
+
 chmod -R 777 "$ROOT_DIR"
 
 print_header "Pipeline Terminé !"
