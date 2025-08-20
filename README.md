@@ -40,6 +40,8 @@ Be sure to have Docker installed on your system. If you don't have it, you can f
 3. Build the Docker image
 ```bash
 sudo docker build -t camtrap-processor .
+# or
+sudo docker build -t camtrap-processor <path_to_dockerfile>
 ```
 This command builds the Docker image using the Dockerfile in the current directory and tags it as `camtrap-processor`. Make sure to run this command in the directory where the Dockerfile is located.
 
@@ -77,8 +79,60 @@ data/
 │   └── hashes.csv
 ```
 
+## What the pipeline does (high-level)
 
-2. Run the Docker container
+1. Interactive configuration
+    - Ask for the root folder to process (default `/data/RAW`).
+    - Ask for a CSV glob for camera correspondence (default `/data/*.csv`) and require exactly one match.
+    - Ask for the file type/extension to process (e.g. `.jpg` or `.avi`).
+    - Optionally accept multiple area/date correction patches (area name, filter condition, last bad image id, corrected date).
+
+2. Processing (Python pipeline: `main_process_images.main`)
+    - Extract metadata from all files under the chosen `FILES_PATH`.
+    - Build a `CLEANED` arborescence and create a `.tmp` working folder in the cleaned output.
+    - Detect obvious duplicates and save a `dropped_<timestamp>.csv` in `.tmp`.
+    - Apply user-specified corrections (if any).
+    - Compute new filenames based on acquisition date and the chosen extension.
+    - Separate timelapse frames and camera-triggered images, write CSV manifests, and move/copy files into the `CLEANED` structure.
+
+3. Post-processing placement
+    - By default, the cleaned results are placed under `/data/CLEANED` (root of the mounted volume).
+    - The script asks whether to place results into a subfolder under `/data/CLEANED`; if yes, it will move the cleaned output to `/data/CLEANED/<subfolder>`.
+
+4. Hashing and duplicate detection
+    - For non-`.avi` file types (e.g. `.jpg`) the script runs `run_hash.sh` to compute file hashes and `run_extract_duplicates.sh` to find duplicates. Hash output files like `hashes_output.csv` are saved in the cleaned output.
+    - If the chosen extension is `.avi`, hashing and duplicate detection are skipped (video hashing is intentionally disabled by default).
+
+5. Optional upload
+    - The script can upload the cleaned folder to a remote NAS via SCP (interactive credentials and destination required).
+
+## Key outputs
+
+- `/data/CLEANED/` or `/data/CLEANED/<subfolder>` — organized and renamed images (timelapse / per-year / per-site structure).
+- `/data/CLEANED/.tmp/` — intermediate manifests created during processing (e.g. `structure_timelapse.csv`, `structure_camera_*.csv`, `dropped_<timestamp>.csv`).
+- `hashes_output.csv` (and other hash/duplicate reports) — when hashing runs (skipped for `.avi`).
+- Duplicate report files produced by `run_extract_duplicates.sh`.
+
+## Interactive prompts you will see
+
+- Path to the root folder containing raw data (default `/data/RAW`).
+- CSV glob for camera correspondence (default `/data/*.csv`).
+- File type to process (e.g. `.jpg`, `.avi`).
+- Optionally, repeated blocks to add area/date corrections (area name, query, last image id, corrected date).
+- After processing: whether to move results into a subfolder under `/data/CLEANED` and the subfolder name.
+- Optionally: whether to upload results to a NAS and the remote connection details.
+
+## Points of vigilance
+
+- Permissions: the script sets wide permissions (chmod -R 777) on output folders. Ensure the mounted host folder can accept these changes and that you are comfortable with those permissions.
+- CSV globbing: the script requires exactly one CSV match for the correspondence file. If the glob matches zero or multiple files the script will exit.
+- Large datasets: processing uses joblib parallelism; monitor memory and CPU usage inside the container for large inputs. Consider limiting parallel workers if needed.
+- `.avi` behaviour: By design the pipeline skips hashing and duplicate detection for `.avi` files — this is intentional because hashing video content may be expensive or not required.
+- Interactivity: `start.sh` is interactive. For automation you will need to change it to accept arguments or provide non-interactive defaults.
+- Backups: the script may copy/move many files — keep a backup of your raw data if you need to preserve original paths.
+
+## Quick start
+If any corrections are made on the original code, please re-build the Docker image. Else, you can run the following command:
 ```bash
 sudo docker run -it --rm \
     -v /path/to/your/data:/data \  # Mount your data directory
@@ -88,3 +142,8 @@ Replace `/path/to/your/data` with the actual path to your data directory. This c
 
 # Notes
 - The csv file `hashes_output_duplicates_sha256.csv` and `hashes_output_duplicates_pixels_md5.csv` will be generated in the `CLEANED` directory, containing the SHA256 and MD5 hashes of the images, with and without tags, respectively. These files can be used to identify duplicate images
+
+- Processing manifests and intermediate CSVs: `/data/CLEANED/.tmp/` after processing.
+- Hash and duplicate reports: `/data/CLEANED/` (or chosen subfolder) as `hashes_output.csv` and files produced by `run_extract_duplicates.sh`.
+
+If you want, I can also add a short example showing a full interactive session and expected folder changes on the host after running the pipeline.
