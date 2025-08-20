@@ -91,12 +91,14 @@ def main(
             finish_message="✅ Finished adding new names",
             failed_message="❌ Failed adding new names",
         )
+        # utiliser l'extension fournie par type_file (ajoute '.' si absent)
+        ext = type_file if type_file.startswith(".") else f".{type_file}"
         structure["new_name"] = structure.apply(
             lambda x: (
                 x.new_dir
                 + "__"
                 + x.date_acquisition.strftime("%Y-%m-%d__%H-%M-%S")
-                + ".jpg"
+                + ext
                 if ((x.date_acquisition is not None))
                 else None
             ),
