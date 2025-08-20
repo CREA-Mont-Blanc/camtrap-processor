@@ -137,15 +137,22 @@ fi
 # Demander à l'utilisateur s'il veut un sous-dossier
 read -e -p "Voulez-vous mettre les résultats dans un sous-dossier de CLEANED ? (o/n) [défaut: n]: " SOUSDOSSIER_REP
 SOUSDOSSIER_REP=${SOUSDOSSIER_REP:-n}
+
+
+ROOT_DIR="/data/CLEANED"
+
+
 if [[ "$SOUSDOSSIER_REP" =~ ^[Oo]$ ]]; then
     read -e -p "Nom du sous-dossier : " SOUSDOSSIER_NOM
-    DEST_CLEANED="/data/CLEANED/$SOUSDOSSIER_NOM"
+    # DEST_CLEANED="/data/CLEANED/$SOUSDOSSIER_NOM"
+    DEST_CLEANED="$ROOT_DIR/$SOUSDOSSIER_NOM"
 else
-    DEST_CLEANED="/data/CLEANED"
+    DEST_CLEANED="$ROOT_DIR"
+    # Créer le dossier destination si besoin
 fi
-
-# Créer le dossier destination si besoin
+mkdir -p "$ROOT_DIR"
 mkdir -p "$DEST_CLEANED"
+chmod -R 777 "$ROOT_DIR"
 
 # Déplacer le contenu de CLEANED dans la destination
 cp -r "$CLEANED_DIR"/* "$DEST_CLEANED"/
@@ -160,31 +167,34 @@ echo "Les fichiers traités sont dans le dossier: $DEST_CLEANED"
 ROOT_DIR="$DEST_CLEANED"
 
 # --- 3. Exécution du hachage ---
-print_header "Étape 3: Calcul des hashes des fichiers"
+# Skipper le hachage et la détection de doublons pour les fichiers .avi
+if [[ "$TYPE_FILE" == ".avi" ]]; then
+    print_header "Étape 3 & 4: Hachage et détection de doublons ignorés pour les fichiers .avi"
+    echo "Les fichiers .avi ne nécessitent pas de hachage ni de détection de doublons."
+else
+    print_header "Étape 3: Calcul des hashes des fichiers"
 
+    if [ ! -d "$ROOT_DIR" ]; then
+        echo "Erreur: Le dossier de sortie '$ROOT_DIR' n'a pas été trouvé."
+        exit 1
+    fi
 
-if [ ! -d "$ROOT_DIR" ]; then
-    echo "Erreur: Le dossier de sortie '$ROOT_DIR' n'a pas été trouvé."
-    exit 1
+    # Fichier de sortie dans le dossier destination
+    HASH_OUTPUT_FILE="${ROOT_DIR}/hashes_output.csv"
+    ./run_hash.sh "$ROOT_DIR" "$HASH_OUTPUT_FILE"
+    check_error "Hachage des fichiers (run_hash.sh)"
+
+    # --- 4. Recherche de doublons ---
+    print_header "Étape 4: Recherche des doublons"
+    if [ ! -f "$HASH_OUTPUT_FILE" ]; then
+        echo "Erreur: Le fichier de hashes '$HASH_OUTPUT_FILE' n'a pas été trouvé."
+        exit 1
+    fi
+
+    ./run_extract_duplicates.sh "$HASH_OUTPUT_FILE"
+    check_error "Détection des doublons (run_extract_duplicates.sh)"
+    echo "Les rapports sur les doublons ont été enregistrés dans le dossier '$ROOT_DIR'."
 fi
-
-# Fichier de sortie dans le dossier destination
-HASH_OUTPUT_FILE="${ROOT_DIR}/hashes_output.csv"
-./run_hash.sh "$ROOT_DIR" "$HASH_OUTPUT_FILE"
-check_error "Hachage des fichiers (run_hash.sh)"
-
-
-
-# --- 4. Recherche de doublons ---
-print_header "Étape 4: Recherche des doublons"
-if [ ! -f "$HASH_OUTPUT_FILE" ]; then
-    echo "Erreur: Le fichier de hashes '$HASH_OUTPUT_FILE' n'a pas été trouvé."
-    exit 1
-fi
-
-./run_extract_duplicates.sh "$HASH_OUTPUT_FILE"
-check_error "Détection des doublons (run_extract_duplicates.sh)"
-echo "Les rapports sur les doublons ont été enregistrés dans le dossier '$ROOT_DIR'."
 
 
 # --- 5. Téléversement sur le NAS ---
