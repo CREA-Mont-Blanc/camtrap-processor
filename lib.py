@@ -361,7 +361,51 @@ def get_new_dir(file_path, corresponding_dir=None):
             "Structure de correspondance non reconnue. Colonnes attendues: ('current_name', 'replacement_name') ou ('station')"
         )
 
-    # Si aucune correspondance trouvée
+    # Si aucune correspondance trouvée, essayer de matcher sur replacement_name/station
+    if (
+        "current_name" in corresponding_dir.columns
+        and "replacement_name" in corresponding_dir.columns
+    ):
+        # Chercher dans replacement_name
+        for comp in components:
+            normalized_comp = normalize_station_name(comp)
+            match_row = corresponding_dir[
+                corresponding_dir["replacement_name"].apply(normalize_station_name)
+                == normalized_comp
+            ]
+            if not match_row.empty:
+                match_row = match_row.iloc[0]
+                return match_row["replacement_name"]
+
+    elif "station" in corresponding_dir.columns:
+        # Chercher dans station (déjà fait ci-dessus)
+        pass
+
+    # Si toujours aucune correspondance, prendre le nom du dossier au niveau 4
+    # Exemple: /data/RAW/BELLEDONNE/bel02/100RECNX/ -> bel02
+    try:
+        # Chercher le niveau approprié dans les composants du chemin
+        for i, comp in enumerate(components):
+            if comp in ["RAW"]:
+                # Le niveau 4 serait à l'index i+2 (RAW -> massif -> station)
+                if i + 2 < len(components):
+                    fallback_name = components[i + 2]
+                    print(
+                        f"Warning: Aucune correspondance trouvée pour {file_path}, utilisation du nom de dossier: {fallback_name}"
+                    )
+                    return fallback_name
+
+        # Si pas de structure RAW trouvée, prendre l'avant-dernier composant
+        if len(components) >= 2:
+            fallback_name = components[-2]
+            print(
+                f"Warning: Aucune correspondance trouvée pour {file_path}, utilisation du nom de dossier: {fallback_name}"
+            )
+            return fallback_name
+    except Exception as e:
+        print(f"Error extracting folder name from path {file_path}: {e}")
+
+    # En dernier recours, lever l'exception
     raise Warning(f"Aucune correspondance trouvée pour {file_path}")
 
 

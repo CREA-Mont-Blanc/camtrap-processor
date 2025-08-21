@@ -143,7 +143,90 @@ Replace `/path/to/your/data` with the actual path to your data directory. This c
 # Notes
 - The csv file `hashes_output_duplicates_sha256.csv` and `hashes_output_duplicates_pixels_md5.csv` will be generated in the `CLEANED` directory, containing the SHA256 and MD5 hashes of the images, with and without tags, respectively. These files can be used to identify duplicate images
 
+## Where to look for logs and intermediate files
+
 - Processing manifests and intermediate CSVs: `/data/CLEANED/.tmp/` after processing.
 - Hash and duplicate reports: `/data/CLEANED/` (or chosen subfolder) as `hashes_output.csv` and files produced by `run_extract_duplicates.sh`.
+
+## Automated processing for multiple mountain ranges
+
+For large-scale processing of multiple mountain ranges (massifs) containing mixed video and image datasets, an automated solution is available. This is particularly useful when you have:
+
+- Multiple distinct geographical areas (e.g., Bauges, Belledonne, Mont-Blanc)
+- Mixed file types (.jpg images and .avi videos) that need different processing workflows
+- Different camera correspondence CSV files for each region
+- Need to process everything without manual intervention
+
+### Automated workflow features
+
+The automated script (`run_automated_camtrap.sh`) processes multiple folders sequentially using a JSON configuration file (`camtrap_config.json`). It:
+
+- Handles different mountain ranges with their specific camera correspondence files
+- Automatically separates image and video processing (videos go to a `video/` subfolder)
+- Skips hashing for video files (which is expensive and often unnecessary)
+- Organizes results by geographical area and file type
+- Requires no user interaction once configured
+
+### Example structure processed
+
+```
+CAMTRAP/
+├── RAW/
+│   ├── BAUGES/          # Uses BA_BEL_renaming_PP_*.csv
+│   │   ├── ba01/
+│   │   ├── ba02/
+│   │   └── ...
+│   ├── BELLEDONNE/      # Uses BA_BEL_renaming_PP_*.csv  
+│   │   ├── bel01/
+│   │   ├── bel02/
+│   │   └── ...
+│   └── MB/              # Uses MB_camerainfo_*.csv
+│       ├── loriaz1700/
+│       ├── para2100/
+│       └── ...
+└── CLEANED/             # Automated output
+    ├── BAUGES/
+    │   ├── [organized .jpg files]
+    │   └── video/
+    │       └── [organized .avi files]
+    ├── BELLEDONNE/
+    │   ├── [organized .jpg files] 
+    │   └── video/
+    │       └── [organized .avi files]
+    └── MB/
+        ├── [organized .jpg files]
+        └── video/
+            └── [organized .avi files]
+```
+
+### Prerequisites for automated processing
+
+
+1. Docker installed and running
+2. The CAMTRAP dataset mounted at `/media/XXX/Creator Pro/CAMTRAP` (replace `XXX` with your username)
+3. CSV correspondence files copied to the CAMTRAP root folder
+4. Built Docker image: `camtrap-processor`
+5. `jq` installed for JSON parsing (`sudo apt install jq`)
+
+### Quick Start
+
+1. Configure your datasets in `camtrap_config.json`
+2. Ensure CSV correspondence files are in place
+3. Run: `./run_automated_camtrap.sh`
+
+```bash
+cd /path/to/the/dock
+./run_automated_camtrap.sh
+```
+
+#### Troubleshooting
+
+- Ensure `jq` is installed: `sudo apt install jq`
+- If Docker permissions issues occur, try running with `sudo`
+- Ensure the CAMTRAP folder path is correct in `camtrap_config.json`
+- Check that CSV files are present in the CAMTRAP root folder
+- Monitor disk space as processing creates copies of all files
+
+This automated approach is ideal for research projects spanning multiple mountain ranges where consistent processing of large mixed datasets is required.
 
 If you want, I can also add a short example showing a full interactive session and expected folder changes on the host after running the pipeline.
