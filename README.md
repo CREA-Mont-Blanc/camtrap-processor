@@ -112,6 +112,8 @@ data/
 - `/data/CLEANED/.tmp/` — intermediate manifests created during processing (e.g. `structure_timelapse.csv`, `structure_camera_*.csv`, `dropped_<timestamp>.csv`).
 - `hashes_output.csv` (and other hash/duplicate reports) — when hashing runs (skipped for `.avi`).
 - Duplicate report files produced by `run_extract_duplicates.sh`.
+- The (sequence) in the name is produced in following manner: Images taken within 1 minute of each other are considered part of the same sequence.
+    Sequence counter resets when there's a gap longer than 1 minute between images.
 
 ## Interactive prompts you will see
 
