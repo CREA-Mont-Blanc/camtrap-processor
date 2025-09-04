@@ -1,0 +1,38 @@
+{
+    "base_data_path": "/media/mgallet/Creator Pro/CAMTRAP",
+    "output_base": "/media/mgallet/Creator Pro/CAMTRAP/CLEANED",
+    "docker_image": "camtrap-processor",
+    "folders_to_process": [
+        {
+            "name": "BAUGES",
+            "input_path": "/data/RAW/BAUGES",
+            "csv_file": "/data/BA_BEL_renaming_PP_20082025.csv",
+            "file_types": [
+                ".jpg",
+                ".avi"
+            ],
+            "output_subfolder": "BAUGES"
+        },
+        {
+            "name": "BELLEDONNE",
+            "input_path": "/data/RAW/BELLEDONNE",
+            "csv_file": "/data/BA_BEL_renaming_PP_20082025.csv",
+            "file_types": [
+                ".jpg"
+            ],
+            "output_subfolder": "BELLEDONNE"
+        },
+        {
+            "name": "MB",
+            "input_path": "/data/RAW/MB",
+            "csv_file": "/data/MB_camerainfo_20250423.csv",
+            "file_types": [
+                ".jpg"
+            ],
+            "output_subfolder": "MB"
+        }
+    ],
+    "video_subfolder": "video",
+    "no_nas_upload": true,
+    "skip_date_corrections": true
+}

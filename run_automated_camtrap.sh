@@ -79,7 +79,7 @@ import os
 
 try:
     # Configuration pour $folder_name avec $file_type
-    print("Loading CSV file: $csv_file")
+    # print("Loading CSV file: $csv_file")
     corresponding_dir = pd.read_csv("$csv_file", sep=None, engine='python')
     print(f"CSV columns: {corresponding_dir.columns.tolist()}")
     print(f"First few rows:")

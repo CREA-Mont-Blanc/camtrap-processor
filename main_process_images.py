@@ -2,6 +2,7 @@ from lib import *
 from display import *
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
 
 
 def main(
@@ -115,26 +116,94 @@ def main(
             finish_message="✅ Finished separating timelapse and camera images",
             failed_message="❌ Failed separating timelapse and camera images",
         )
-        structure_timelapse = structure[
-            structure.date_acquisition.apply(
-                lambda x: (
-                    True
-                    #if (x.second == 0) and ((x.minute == 0) or (x.minute == 30))
-                    if (x.minute == 0)
-                    else False
-                )
+
+        # Extract station from new_name column (split on '__' and take first part)
+        structure["station"] = structure["new_name"].apply(
+            lambda x: x.split("__")[0] if pd.notna(x) and "__" in x else None
+        )
+
+        # Check if timelapse column exists in corresponding_dir
+        if "timelapse" in corresponding_dir.columns:
+            # Merge structure with corresponding_dir to get timelapse info
+            structure_with_timelapse = structure.merge(
+                corresponding_dir[["station", "timelapse"]],
+                on="station",
+                how="left",
             )
-        ].copy(deep=True)
-        structure_camera = structure[
-            structure.date_acquisition.apply(
-                lambda x: (
-                    False
-                    # if (x.second == 0) and ((x.minute == 0) or (x.minute == 30))
-                    if (x.minute == 0)
-                    else True
+
+            # Function to convert timelapse time format to hour (24h format)
+            def convert_timelapse_to_hour(timelapse_val):
+                if pd.isna(timelapse_val) or str(timelapse_val).lower() == "non":
+                    return None
+
+                timelapse_str = str(timelapse_val).lower()
+                if "m" in timelapse_str:
+                    # Split on 'm' and take the first part
+                    time_part = timelapse_str.split("m")[0]
+                    if "a" in time_part:
+                        # AM time
+                        hour_str = time_part.replace("a", "")
+                        try:
+                            hour = int(hour_str)
+                            return hour if hour != 12 else 0  # 12am = 0h
+                        except ValueError:
+                            return None
+                    elif "p" in time_part:
+                        # PM time
+                        hour_str = time_part.replace("p", "")
+                        try:
+                            hour = int(hour_str)
+                            return (
+                                hour + 12 if hour != 12 else 12
+                            )  # 12pm = 12h, others +12
+                        except ValueError:
+                            return None
+                return None
+
+            # Function to check if a photo is timelapse based on date and timelapse schedule
+            def is_timelapse_photo(row):
+                if pd.isna(row["timelapse"]) or str(row["timelapse"]).lower() == "non":
+                    return False
+
+                timelapse_hour = convert_timelapse_to_hour(row["timelapse"])
+                if timelapse_hour is None:
+                    return False
+
+                photo_datetime = row["date_acquisition"]
+                if pd.isna(photo_datetime):
+                    return False
+
+                # Check if minute is 0 and hour matches timelapse schedule
+                return (
+                    photo_datetime.minute == 0 and photo_datetime.hour == timelapse_hour
                 )
+
+            structure_with_timelapse["is_timelapse"] = structure_with_timelapse.apply(
+                is_timelapse_photo, axis=1
             )
-        ].copy(deep=True)
+
+            structure_timelapse = structure_with_timelapse[
+                structure_with_timelapse["is_timelapse"] == True
+            ].copy(deep=True)
+            structure_camera = structure_with_timelapse[
+                structure_with_timelapse["is_timelapse"] == False
+            ].copy(deep=True)
+        else:
+            print(
+                "Warning: 'timelapse' column not found in corresponding_dir. Using date-based separation."
+            )
+            # Use original logic based on date/time
+            structure_timelapse = structure[
+                structure.date_acquisition.apply(
+                    lambda x: (True if (x.second == 0) and (x.minute == 0) else False)
+                )
+            ].copy(deep=True)
+            structure_camera = structure[
+                structure.date_acquisition.apply(
+                    lambda x: (False if (x.second == 0) and (x.minute == 0) else True)
+                )
+            ].copy(deep=True)
+
         loader.finished = True
     except Exception as e:
         loader.failed = True
