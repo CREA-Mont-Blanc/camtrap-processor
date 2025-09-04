@@ -119,7 +119,8 @@ def main(
             structure.date_acquisition.apply(
                 lambda x: (
                     True
-                    if (x.second == 0) and ((x.minute == 0) or (x.minute == 30))
+                    #if (x.second == 0) and ((x.minute == 0) or (x.minute == 30))
+                    if (x.minute == 0)
                     else False
                 )
             )
@@ -128,7 +129,8 @@ def main(
             structure.date_acquisition.apply(
                 lambda x: (
                     False
-                    if (x.second == 0) and ((x.minute == 0) or (x.minute == 30))
+                    # if (x.second == 0) and ((x.minute == 0) or (x.minute == 30))
+                    if (x.minute == 0)
                     else True
                 )
             )
