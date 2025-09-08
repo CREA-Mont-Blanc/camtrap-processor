@@ -173,9 +173,11 @@ def main(
                 if pd.isna(photo_datetime):
                     return False
 
-                # Check if minute is 0 and hour matches timelapse schedule
+                # Check if minute is 0, hour matches timelapse schedule, and second is 00-09
                 return (
-                    photo_datetime.minute == 0 and photo_datetime.hour == timelapse_hour
+                    photo_datetime.minute == 0
+                    and photo_datetime.hour == timelapse_hour
+                    and photo_datetime.second <= 9  # Accept seconds 00 to 09
                 )
 
             structure_with_timelapse["is_timelapse"] = structure_with_timelapse.apply(
@@ -192,15 +194,15 @@ def main(
             print(
                 "Warning: 'timelapse' column not found in corresponding_dir. Using date-based separation."
             )
-            # Use original logic based on date/time
+            # Use original logic based on date/time with relaxed second criteria
             structure_timelapse = structure[
                 structure.date_acquisition.apply(
-                    lambda x: (True if (x.second == 0) and (x.minute == 0) else False)
+                    lambda x: (True if (x.second <= 9) and (x.minute == 0) else False)
                 )
             ].copy(deep=True)
             structure_camera = structure[
                 structure.date_acquisition.apply(
-                    lambda x: (False if (x.second == 0) and (x.minute == 0) else True)
+                    lambda x: (False if (x.second <= 9) and (x.minute == 0) else True)
                 )
             ].copy(deep=True)
 
